@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>WebSocket Chat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style type="text/css">
+        body {
+            background-color: #f0f0f0;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 10px;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .user-list-container {
+            margin-right: 10px;
+            overflow-y: auto;
+        }
+
+        .message-container {
+            max-height: 400px;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            max-width: 70%;
+            width: auto;
+        }
+
+        .message.me {
+            background-color: #78b8ef;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .message.others {
+            background-color: #e0e0e0;
+            align-self: flex-start;
+        }
+
+        .form {
+            background-color: #f9f9f9;
+            border-top: 1px solid #78b8ef;
+            padding: 10px;
+            box-shadow: 0 -5px 5px -5px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form .placeholder,
+        .form .input-message,
+        .form button {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .form .input-message {
+            padding: 10px;
+            border: 1px solid #ecebeb;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .form button {
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #78b8ef;
+            border: 1px solid #5a9ed8;
+            cursor: pointer;
+            align-self: flex-end;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ecebeb;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        @media screen and (max-width: 480px) {
+            .container {
+                max-width: 100%;
+                border-radius: 0;
+                flex-direction: column;
+            }
+
+            .message-container {
+                max-height: none;
+            }
+
+            .form {
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="user-list-container">
+            <label><b>Online Users:</b></label>
+            <select class="user-list" multiple></select>
+        </div>
+        <div class="message-container"></div>
+    </div>
+
+    <div class="form">
+        <form onsubmit="app.doSendMessage(); return false;">
+            <div class="placeholder">
+                <label>Hello <b class="current-username"></b>. Say something:</label>
+            </div>
+            <input class="input-message" type="text" placeholder="Enter message">
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <script type="text/javascript">
+        var app = {};
+        app.ws = undefined;
+        app.container = undefined;
+        app.username = undefined;
+
+        app.print = function (message, isMe) {
+            var el = document.createElement("div");
+            el.innerHTML = message;
+            el.classList.add("message");
+
+            if (isMe) {
+                el.classList.add("me");
+            } else {
+                el.classList.add("others");
+            }
+
+            el.style.width = 'auto';
+
+            app.container.appendChild(el);
+        };
+
+        app.updateOnlineUserList = function (userList) {
+            var userListDropdown = document.querySelector('.user-list');
+            userListDropdown.innerHTML = '';
+
+            // Add the current user to the top of the list
+            var optionCurrentUser = document.createElement('option');
+            optionCurrentUser.text = app.username;
+            optionCurrentUser.style.fontWeight = 'bold';
+            optionCurrentUser.style.color = '#000000';
+            optionCurrentUser.disabled = true;
+            userListDropdown.add(optionCurrentUser);
+
+            for (var i = 0; i < userList.length; i++) {
+                var option = document.createElement('option');
+                option.text = userList[i];
+                
+                if (userList[i] === app.username) {
+                    // Skip the current user since it's already added at the top
+                    continue;
+                }
+
+                userListDropdown.add(option);
+            }
+        };
+
+        app.doSendMessage = function () {
+            var messageRaw = document.querySelector('.input-message').value;
+            var targetUser = document.querySelector('.user-list').value;
+
+            app.ws.send(JSON.stringify({
+                message: messageRaw,
+                targetUser: targetUser,
+            }));
+
+            var message = '<b>me</b>: ' + messageRaw;
+            app.print(message, true);
+
+            document.querySelector('.input-message').value = '';
+        };
+
+        app.init = function () {
+            if (!window.WebSocket) {
+                alert('Your browser does not support WebSocket');
+                return;
+            }
+
+            app.username = prompt('Enter your name please:') || "No name";
+            document.querySelector('.current-username').innerText = app.username;
+            
+            // Use the "user-list" class to get the select element
+            document.querySelector('.user-list').onchange = function () {
+                var targetUser = this.value;
+                console.log("Selected target user:", targetUser);
+            };
+
+            app.container = document.querySelector('.message-container');
+
+            app.ws = new WebSocket("ws://192.168.88.149:8080/ws?username=" + app.username);
+
+            app.ws.onopen = function () {
+                var message = '<b>me</b>: connected';
+                app.print(message, true);
+            };
+
+            app.ws.onmessage = function (event) {
+                console.log("Received message from server:", event.data);
+
+                var res = JSON.parse(event.data);
+
+                if (res.type === 'UserList') {
+                    app.updateOnlineUserList(res.message);
+                    return;
+                }
+
+                var message = '';
+                if (res.type === 'New User') {
+                    message = 'User <b>' + res.from + '</b>: connected';
+                } else if (res.type === 'Leave') {
+                    message = 'User <b>' + res.from + '</b>: disconnected';
+                } else {
+                    message = '<b>' + res.from + '</b>: ' + res.message;
+                }
+
+                app.print(message, false);
+            };
+        };
+
+        window.onload = app.init;
+    </script>
+</body>
+</html>
