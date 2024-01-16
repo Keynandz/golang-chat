@@ -30,6 +30,7 @@
 
         .message-container {
             max-height: 400px;
+            max-width: 600px;
             overflow-y: auto;
             flex-grow: 1;
             display: flex;
@@ -70,12 +71,15 @@
 
         .form .placeholder,
         .form .input-message,
-        .form button {
+        .form button,
+        .form #image-upload,
+        .form #image-preview {
             display: block;
             margin-bottom: 10px;
         }
 
-        .form .input-message {
+        .form .input-message,
+        .form #image-upload {
             padding: 10px;
             border: 1px solid #ecebeb;
             border-radius: 4px;
@@ -87,8 +91,8 @@
             color: white;
             padding: 10px;
             border-radius: 4px;
-            background-color: #78b8ef;
-            border: 1px solid #5a9ed8;
+            background-color: #0088ff;
+            border: 1px solid #ffffff;
             cursor: pointer;
             align-self: flex-end;
         }
@@ -101,6 +105,11 @@
             box-sizing: border-box;
         }
 
+        #image-preview {
+            display: none;
+            margin-bottom: 10px;
+        }
+
         @media screen and (max-width: 480px) {
             .container {
                 max-width: 100%;
@@ -109,7 +118,7 @@
             }
 
             .message-container {
-                max-height: none;
+                max-height: calc(100vh - 300px);
             }
 
             .form {
@@ -130,9 +139,13 @@
     <div class="form">
         <form onsubmit="app.doSendMessage(); return false;">
             <div class="placeholder">
-                <label>Hello <b class="current-username"></b>. Say something:</label>
+                <label><b class="current-username"></b>. Say something:</label>
             </div>
             <input class="input-message" type="text" placeholder="Enter message">
+            <div id="image-preview">
+                <img id="uploaded-image" alt="">
+            </div>
+            <input id="image-upload" type="file" accept="image/*" onchange="app.handleImageUpload()">
             <button type="submit">Send</button>
         </form>
     </div>
@@ -142,6 +155,7 @@
         app.ws = undefined;
         app.container = undefined;
         app.username = undefined;
+        app.imageContentType = '';
 
         app.print = function (message, isMe) {
             var el = document.createElement("div");
@@ -157,13 +171,14 @@
             el.style.width = 'auto';
 
             app.container.appendChild(el);
+
+            app.container.scrollTop = app.container.scrollHeight;
         };
 
         app.updateOnlineUserList = function (userList) {
             var userListDropdown = document.querySelector('.user-list');
             userListDropdown.innerHTML = '';
 
-            // Add the current user to the top of the list
             var optionCurrentUser = document.createElement('option');
             optionCurrentUser.text = app.username;
             optionCurrentUser.style.fontWeight = 'bold';
@@ -174,9 +189,8 @@
             for (var i = 0; i < userList.length; i++) {
                 var option = document.createElement('option');
                 option.text = userList[i];
-                
+
                 if (userList[i] === app.username) {
-                    // Skip the current user since it's already added at the top
                     continue;
                 }
 
@@ -188,15 +202,69 @@
             var messageRaw = document.querySelector('.input-message').value;
             var targetUser = document.querySelector('.user-list').value;
 
-            app.ws.send(JSON.stringify({
-                message: messageRaw,
-                targetUser: targetUser,
-            }));
+            if (document.getElementById('image-preview').style.display === 'block') {
+                var imageData = app.getBase64Image();
+                app.ws.send(JSON.stringify({
+                    message: '',
+                    targetUser: targetUser,
+                    image: {
+                        data: imageData,
+                        contentType: app.imageContentType,
+                    },
+                }));
 
-            var message = '<b>me</b>: ' + messageRaw;
-            app.print(message, true);
+                var message = '<b>me</b>: sent an image';
+                app.print(message, true);
 
-            document.querySelector('.input-message').value = '';
+                document.getElementById('image-upload').value = '';
+                document.getElementById('image-preview').style.display = 'none';
+                document.getElementById('uploaded-image').src = '';
+            } else {
+                app.ws.send(JSON.stringify({
+                    message: messageRaw,
+                    targetUser: targetUser,
+                }));
+
+                var message = '<b>me</b>: ' + messageRaw;
+                app.print(message, true);
+
+                document.querySelector('.input-message').value = '';
+            }
+        };
+
+        app.handleImageUpload = function () {
+            var fileInput = document.getElementById('image-upload');
+            var preview = document.getElementById('image-preview');
+            var uploadedImage = document.getElementById('uploaded-image');
+
+            if (fileInput.files.length > 0) {
+                var file = fileInput.files[0];
+                var reader = new FileReader();
+
+                reader.onload = function (e) {
+                    preview.style.display = 'block';
+                    uploadedImage.src = e.target.result;
+                    app.imageContentType = file.type;
+                };
+
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+                uploadedImage.src = '';
+            }
+        };
+
+        app.getBase64Image = function () {
+            var img = document.getElementById('uploaded-image');
+            var canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            var dataURL = canvas.toDataURL(app.imageContentType);
+            return dataURL.split(',')[1];
         };
 
         app.init = function () {
@@ -205,10 +273,10 @@
                 return;
             }
 
+            document.getElementById('uploaded-image').style.display = 'none';
             app.username = prompt('Enter your name please:') || "No name";
             document.querySelector('.current-username').innerText = app.username;
-            
-            // Use the "user-list" class to get the select element
+
             document.querySelector('.user-list').onchange = function () {
                 var targetUser = this.value;
                 console.log("Selected target user:", targetUser);
@@ -238,6 +306,8 @@
                     message = 'User <b>' + res.from + '</b>: connected';
                 } else if (res.type === 'Leave') {
                     message = 'User <b>' + res.from + '</b>: disconnected';
+                } else if (res.type === 'Image') {
+                    message = '<b>' + res.from + '</b>: <img src="' + res.message + '" style="max-width: 100%; max-height: 200px;">';
                 } else {
                     message = '<b>' + res.from + '</b>: ' + res.message;
                 }
