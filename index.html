@@ -128,19 +128,7 @@
     </style>
 </head>
 <body>
-    <!-- Username input form -->
-    <div id="username-form" class="form">
-        <form onsubmit="app.setUserName(); return false;">
-            <div class="placeholder">
-                <label><b>Enter your name:</b></label>
-            </div>
-            <input id="username-input" type="text" placeholder="Username">
-            <button type="submit">Set Username</button>
-        </form>
-    </div>
-
-    <!-- Chat container -->
-    <div id="chat-container" class="container" style="display:none;">
+    <div class="container">
         <div class="user-list-container">
             <label><b>Online Users:</b></label>
             <select class="user-list" multiple></select>
@@ -148,8 +136,7 @@
         <div class="message-container"></div>
     </div>
 
-    <!-- Message input form -->
-    <div id="message-form" class="form" style="display:none;">
+    <div class="form">
         <form onsubmit="app.doSendMessage(); return false;">
             <div class="placeholder">
                 <label><b class="current-username"></b>. Say something:</label>
@@ -280,17 +267,6 @@
             return dataURL.split(',')[1];
         };
 
-        app.setUserName = function () {
-            var usernameInput = document.getElementById('username-input');
-            app.username = usernameInput.value || "No name";
-            document.querySelector('.current-username').innerText = app.username;w
-            document.getElementById('username-form').style.display = 'none';
-            document.getElementById('chat-container').style.display = 'flex';
-            document.getElementById('message-form').style.display = 'flex';
-
-            app.ws = new WebSocket("ws://192.168.88.149:8080/ws?username=" + app.username);
-        };
-
         app.init = function () {
             if (!window.WebSocket) {
                 alert('Your browser does not support WebSocket');
@@ -298,7 +274,7 @@
             }
 
             document.getElementById('uploaded-image').style.display = 'none';
-            document.getElementById('username-form').style.display = 'block';
+            app.username = prompt('Enter your name please:') || "No name";
             document.querySelector('.current-username').innerText = app.username;
 
             document.querySelector('.user-list').onchange = function () {
