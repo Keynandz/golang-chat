@@ -57,6 +57,13 @@ func HandleWebSocket(c echo.Context) error {
 	}
 
 	username := c.QueryParam("username")
+
+	if username == "" {
+		return c.String(http.StatusBadRequest, "Username cannot be empty")
+	}
+
+	username = generateUniqueUsername(username)
+
 	connections[ws] = username
 
 	broadcastUserList()
@@ -64,6 +71,22 @@ func HandleWebSocket(c echo.Context) error {
 	go handleIO(ws)
 
 	return nil
+}
+func generateUniqueUsername(username string) string {
+	// Check if the username is already in use
+	for i := 1; isUsernameTaken(username); i++ {
+		username = fmt.Sprintf("%s%d", username, i)
+	}
+	return username
+}
+
+func isUsernameTaken(username string) bool {
+	for _, existingUsername := range connections {
+		if existingUsername == username {
+			return true
+		}
+	}
+	return false
 }
 
 func broadcastUserList() {
