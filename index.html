@@ -199,38 +199,41 @@
         };
 
         app.doSendMessage = function () {
-            var messageRaw = document.querySelector('.input-message').value;
-            var targetUser = document.querySelector('.user-list').value;
+        var messageRaw = document.querySelector('.input-message').value;
+        var targetUser = document.querySelector('.user-list').value;
 
-            if (document.getElementById('image-preview').style.display === 'block') {
-                var imageData = app.getBase64Image();
-                app.ws.send(JSON.stringify({
-                    message: '',
-                    targetUser: targetUser,
-                    image: {
-                        data: imageData,
-                        contentType: app.imageContentType,
-                    },
-                }));
-
-                var message = '<b>me</b>: sent an image';
-                app.print(message, true);
-
-                document.getElementById('image-upload').value = '';
-                document.getElementById('image-preview').style.display = 'none';
-                document.getElementById('uploaded-image').src = '';
-            } else {
-                app.ws.send(JSON.stringify({
-                    message: messageRaw,
-                    targetUser: targetUser,
-                }));
-
-                var message = '<b>me</b>: ' + messageRaw;
-                app.print(message, true);
-
-                document.querySelector('.input-message').value = '';
-            }
+        var messageData = {
+            message: messageRaw,
+            targetUser: targetUser,
         };
+
+        if (document.getElementById('image-preview').style.display === 'block') {
+            var imageData = app.getBase64Image();
+            messageData.image = {
+                data: imageData,
+                contentType: app.imageContentType,
+            };
+
+            var message = '<b>me</b>: sent an image';
+            app.print(message, true);
+        }
+
+        app.ws.send(JSON.stringify(messageData));
+
+        // Print the message if there's text content
+        if (messageRaw) {
+            var messageText = '<b>me</b>: ' + messageRaw; 
+            app.print(messageText, true);
+        }
+
+        // Reset input and image preview after sending
+        document.querySelector('.input-message').value = '';
+        if (document.getElementById('image-preview').style.display === 'block') {
+            document.getElementById('image-upload').value = '';
+            document.getElementById('image-preview').style.display = 'none';
+            document.getElementById('uploaded-image').src = '';
+        }
+    };
 
         app.handleImageUpload = function () {
             var fileInput = document.getElementById('image-upload');
@@ -284,8 +287,10 @@
 
             app.container = document.querySelector('.message-container');
 
-            app.ws = new WebSocket("ws://192.168.88.149:8080/ws?username=" + app.username);
-
+            var webAddress = "{{WEB_ADDRESS}}";  // Placeholder for WEB_ADDRESS
+            var serverPort = "{{SERVER_PORT}}";   // Placeholder for SERVER_PORT
+            app.ws = new WebSocket('ws://' + webAddress + ':' + serverPort + '/ws?username=' + app.username);
+            
             app.ws.onopen = function () {
                 var message = '<b>me</b>: connected';
                 app.print(message, true);
