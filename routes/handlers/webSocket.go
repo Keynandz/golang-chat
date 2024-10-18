@@ -72,6 +72,7 @@ func HandleWebSocket(c echo.Context) error {
 
 	return nil
 }
+
 func generateUniqueUsername(username string) string {
 	// Check if the username is already in use
 	for i := 1; isUsernameTaken(username); i++ {
@@ -139,15 +140,15 @@ func handleIO(ws *websocket.Conn) {
 		if payload.TargetUser != "" {
 			if payload.Image != nil {
 				uploadImage(ws, payload.TargetUser, payload.Image)
+				sendPrivateMessage(ws, payload.TargetUser, MESSAGE_CHAT, payload.Message)
 			} else {
 				sendPrivateMessage(ws, payload.TargetUser, MESSAGE_CHAT, payload.Message)
 			}
 		} else {
 			if payload.Image != nil {
 				uploadImage(ws, "", payload.Image)
-			} else {
-				broadcastMessage(ws, MESSAGE_CHAT, payload.Message)
 			}
+			broadcastMessage(ws, MESSAGE_CHAT, payload.Message)
 		}
 	}
 }
