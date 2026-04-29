@@ -1,7 +1,7 @@
 ## Getting Started
 
 ## INTERFACE
-![IMG]([https://i.ibb.co.com/Q3sGrVCJ/image-2026-04-29-145304119.png)
+![IMG](https://i.ibb.co.com/Q3sGrVCJ/image-2026-04-29-145304119.png)
 
 Cek .env lalu sesuaikan dengan settingan kalian
 
