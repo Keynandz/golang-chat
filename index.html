@@ -4,319 +4,527 @@
     <title>WebSocket Chat</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <style type="text/css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sky-50:  #f0faff;
+            --sky-100: #e0f4ff;
+            --sky-200: #bae8fb;
+            --sky-300: #7dd4f0;
+            --sky-400: #38bde0;
+            --sky-500: #0ea9cc;
+            --cyan-50:  #ecfeff;
+            --cyan-100: #cffafe;
+            --cyan-200: #a5f3fc;
+            --cyan-300: #67e8f9;
+            --cyan-400: #22d3ee;
+            --cyan-500: #06b6d4;
+            --slate-400: #94a3b8;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --font: 'DM Sans', sans-serif;
+            --r-sm: 8px;
+            --r-md: 14px;
+            --r-lg: 20px;
+            --r-xl: 28px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; overflow: hidden; }
         body {
-            background-color: #f0f0f0;
-            margin: 0;
-            font-family: Arial, sans-serif;
+            font-family: var(--font);
+            background: #d0eefa;
+            background-image:
+                radial-gradient(ellipse 80% 60% at 10% 0%, #c0ecf8 0%, transparent 55%),
+                radial-gradient(ellipse 70% 80% at 90% 100%, #b0f0ee 0%, transparent 55%);
         }
 
-        .container {
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 10px;
-            background-color: #ffffff;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-            overflow: hidden;
-            display: flex;
+        /* APP SHELL */
+        .app {
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 64px 1fr 86px;
+            grid-template-areas:
+                "sidebar header"
+                "sidebar messages"
+                "sidebar composer";
+            background: rgba(255,255,255,0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }
 
-        .user-list-container {
-            margin-right: 10px;
-            overflow-y: auto;
-        }
-
-        .message-container {
-            max-height: 400px;
-            max-width: 600px;
-            overflow-y: auto;
-            flex-grow: 1;
+        /* SIDEBAR */
+        .sidebar {
+            grid-area: sidebar;
+            background: linear-gradient(180deg, rgba(224,247,255,0.9) 0%, rgba(204,245,248,0.9) 100%);
+            border-right: 1px solid rgba(125,212,240,0.3);
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
+        .sidebar-brand {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 18px;
+            border-bottom: 1px solid rgba(125,212,240,0.25);
+            flex-shrink: 0;
+        }
+        .brand-icon {
+            width: 32px; height: 32px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--sky-300), var(--cyan-400));
+            display: flex; align-items: center; justify-content: center;
+        }
+        .brand-icon svg { width: 15px; height: 15px; fill: white; }
+        .brand-name { font-size: 14px; font-weight: 500; color: var(--slate-700); }
+        .sidebar-head {
+            padding: 18px 18px 8px;
+            font-size: 10px; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--sky-400);
+            flex-shrink: 0;
+        }
+        .user-list-wrap {
+            flex: 1; overflow-y: auto;
+            padding: 4px 12px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .user-list-wrap::-webkit-scrollbar { width: 3px; }
+        .user-list-wrap::-webkit-scrollbar-thumb { background: var(--sky-200); border-radius: 99px; }
+        .user-list { display: none; }
+        .user-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--r-md);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .user-item:hover { background: rgba(125,212,240,0.18); }
+        .user-item.selected { background: rgba(56,189,224,0.13); }
+        .user-item.is-me { opacity: 0.55; pointer-events: none; }
+        .user-avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10.5px; font-weight: 500; flex-shrink: 0;
+        }
+        .av-a { background: #bae8fb; color: #1e6a8a; }
+        .av-b { background: #a5f3fc; color: #0e7490; }
+        .av-c { background: #99f6e4; color: #0f766e; }
+        .av-d { background: #bae6fd; color: #075985; }
+        .av-e { background: #c7d2fe; color: #3730a3; }
+        .user-name { font-size: 13px; color: var(--slate-700); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-dot { width: 6px; height: 6px; background: var(--cyan-400); border-radius: 50%; flex-shrink: 0; }
+        .sidebar-footer {
+            padding: 12px 18px;
+            border-top: 1px solid rgba(125,212,240,0.25);
+            font-size: 11px; color: var(--sky-400);
+            display: flex; align-items: center; gap: 6px;
+            flex-shrink: 0;
+        }
+        .s-dot { width: 6px; height: 6px; background: var(--cyan-400); border-radius: 50%; }
+
+        /* HEADER */
+        .header {
+            grid-area: header;
+            background: rgba(255,255,255,0.65);
+            border-bottom: 1px solid rgba(186,232,251,0.5);
+            display: flex; align-items: center;
+            padding: 0 26px; gap: 12px;
+        }
+        .h-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--sky-200), var(--cyan-300));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 500; color: var(--slate-700); flex-shrink: 0;
+        }
+        .h-name { font-size: 14px; font-weight: 500; color: var(--slate-800); }
+        .h-status { font-size: 11.5px; color: var(--cyan-500); }
+        .h-actions { margin-left: auto; }
+        .h-btn {
+            width: 34px; height: 34px; border-radius: 10px;
+            background: rgba(186,232,251,0.4);
+            border: 1px solid rgba(125,212,240,0.3);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .h-btn:hover { background: rgba(125,212,240,0.22); }
+        .h-btn svg { width: 14px; height: 14px; stroke: var(--sky-400); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* MESSAGES */
+        .message-container {
+            grid-area: messages;
+            overflow-y: auto;
+            padding: 22px 26px 10px;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .message-container::-webkit-scrollbar { width: 4px; }
+        .message-container::-webkit-scrollbar-thumb { background: var(--sky-200); border-radius: 99px; }
 
         .message {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            max-width: 70%;
-            width: auto;
+            display: flex; flex-direction: column;
+            max-width: 68%;
+            animation: pop 0.22s cubic-bezier(.22,.68,0,1.18) both;
+        }
+        @keyframes pop {
+            from { opacity: 0; transform: translateY(8px) scale(0.97); }
+            to   { opacity: 1; transform: none; }
+        }
+        .message.me    { align-self: flex-end; align-items: flex-end; }
+        .message.others{ align-self: flex-start; align-items: flex-start; }
+
+        .msg-bubble {
+            padding: 10px 15px;
+            font-size: 13.5px; line-height: 1.6;
+            border-radius: var(--r-lg);
+            word-break: break-word;
+        }
+        .message.me .msg-bubble {
+            background: linear-gradient(135deg, #6dcfed, #22d3ee);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .message.others .msg-bubble {
+            background: rgba(255,255,255,0.88);
+            border: 1px solid rgba(186,232,251,0.7);
+            color: var(--slate-700);
+            border-bottom-left-radius: 4px;
+        }
+        .message.me .msg-bubble b { color: rgba(255,255,255,0.75); font-weight: 500; }
+        .message.others .msg-bubble b { color: var(--sky-500); font-weight: 500; }
+        .msg-bubble img { max-width: 100%; max-height: 200px; border-radius: var(--r-md); display: block; margin-top: 6px; }
+
+        .msg-system {
+            align-self: center;
+            font-size: 11px; color: var(--sky-500);
+            background: rgba(224,247,255,0.75);
+            border: 1px solid rgba(125,212,240,0.3);
+            padding: 4px 14px; border-radius: 99px;
+            margin: 4px 0;
+            animation: pop 0.2s ease both;
         }
 
-        .message.me {
-            background-color: #78b8ef;
-            color: white;
-            align-self: flex-end;
+        /* COMPOSER */
+        .composer {
+            grid-area: composer;
+            background: rgba(255,255,255,0.72);
+            border-top: 1px solid rgba(186,232,251,0.55);
+            padding: 0 22px;
+            display: flex; flex-direction: column; justify-content: center; gap: 7px;
         }
-
-        .message.others {
-            background-color: #e0e0e0;
-            align-self: flex-start;
+        .c-label { font-size: 11px; color: var(--sky-400); }
+        .c-label .my-name, .current-username { color: var(--sky-500); font-weight: 500; }
+        .c-row { display: flex; align-items: center; gap: 10px; }
+        .compose-box {
+            flex: 1; display: flex; align-items: center;
+            background: rgba(224,247,255,0.5);
+            border: 1px solid rgba(125,212,240,0.4);
+            border-radius: var(--r-xl);
+            padding: 0 6px 0 18px; gap: 4px;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
-
-        .form {
-            background-color: #f9f9f9;
-            border-top: 1px solid #78b8ef;
-            padding: 10px;
-            box-shadow: 0 -5px 5px -5px rgba(0, 0, 0, 0.1);
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            display: flex;
-            flex-direction: column;
+        .compose-box:focus-within {
+            border-color: var(--sky-300);
+            box-shadow: 0 0 0 3px rgba(125,212,240,0.14);
         }
-
-        .form .placeholder,
-        .form .input-message,
-        .form button,
-        .form #image-upload,
-        .form #image-preview {
-            display: block;
-            margin-bottom: 10px;
+        .input-message {
+            flex: 1; border: none; background: transparent; outline: none;
+            font-family: var(--font); font-size: 13.5px; color: var(--slate-700);
+            padding: 11px 0;
         }
-
-        .form .input-message,
-        .form #image-upload {
-            padding: 10px;
-            border: 1px solid #ecebeb;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
+        .input-message::placeholder { color: var(--slate-400); }
+        .attach-btn {
+            width: 30px; height: 30px; border-radius: 8px;
+            background: transparent; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s; flex-shrink: 0;
         }
-
-        .form button {
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
-            background-color: #0088ff;
-            border: 1px solid #ffffff;
-            cursor: pointer;
-            align-self: flex-end;
+        .attach-btn:hover { background: rgba(125,212,240,0.2); }
+        .attach-btn svg { width: 15px; height: 15px; stroke: var(--sky-400); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        #image-upload { display: none; }
+        .send-btn {
+            width: 42px; height: 42px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--sky-300), var(--cyan-500));
+            border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 3px 12px rgba(34,211,238,0.38);
+            transition: transform 0.12s, box-shadow 0.15s;
         }
-
-        select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ecebeb;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
+        .send-btn:hover { transform: scale(1.07); box-shadow: 0 5px 18px rgba(34,211,238,0.48); }
+        .send-btn:active { transform: scale(0.95); }
+        .send-btn svg { width: 16px; height: 16px; stroke: white; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
         #image-preview {
-            display: none;
-            margin-bottom: 10px;
+            display: none; align-items: center; gap: 10px; padding: 4px 0 2px;
         }
+        #uploaded-image {
+            height: 46px; width: auto;
+            border-radius: 10px; border: 1px solid rgba(125,212,240,0.5);
+            object-fit: cover; display: none;
+        }
+        .prev-rm {
+            font-size: 11px; color: var(--sky-400);
+            cursor: pointer; padding: 3px 8px;
+            border-radius: 6px; background: rgba(186,232,251,0.4);
+            border: 1px solid rgba(125,212,240,0.3);
+            transition: background 0.15s;
+        }
+        .prev-rm:hover { background: rgba(125,212,240,0.22); }
 
-        @media screen and (max-width: 480px) {
-            .container {
-                max-width: 100%;
-                border-radius: 0;
-                flex-direction: column;
+        @media (max-width: 580px) {
+            .app {
+                grid-template-columns: 1fr;
+                grid-template-rows: 52px 50px 1fr 76px;
+                grid-template-areas: "header" "sidebar" "messages" "composer";
             }
-
-            .message-container {
-                max-height: calc(100vh - 350px);
+            .sidebar {
+                flex-direction: row; border-right: none;
+                border-bottom: 1px solid rgba(125,212,240,0.3);
+                background: rgba(224,247,255,0.85);
             }
-
-            .form {
-                border-radius: 0;
-            }
+            .sidebar-brand, .sidebar-head, .sidebar-footer { display: none; }
+            .user-list-wrap { flex-direction: row; padding: 8px 12px; overflow-x: auto; overflow-y: hidden; align-items: center; }
+            .user-item { padding: 5px 10px; white-space: nowrap; }
+            .user-dot { display: none; }
+            .message-container { padding: 14px 16px 8px; }
+            .composer { padding: 0 14px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="user-list-container">
-            <label><b>Online Users:</b></label>
-            <select class="user-list" multiple></select>
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
+            </div>
+            <span class="brand-name">Live Chat</span>
         </div>
-        <div class="message-container"></div>
-    </div>
+        <div class="sidebar-head">Online now</div>
+        <div class="user-list-wrap" id="user-list-ui"></div>
+        <select class="user-list" multiple></select>
+        <div class="sidebar-footer">
+            <div class="s-dot"></div>
+            WebSocket live
+        </div>
+    </aside>
 
-    <div class="form">
+    <header class="header">
+        <div class="h-avatar" id="h-avatar">—</div>
+        <div>
+            <div class="h-name" id="h-name">Connecting…</div>
+            <div class="h-status" id="h-status">please wait</div>
+        </div>
+        <div class="h-actions">
+            <div class="h-btn">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </div>
+        </div>
+    </header>
+
+    <main class="message-container"></main>
+
+    <footer class="composer">
+        <div class="c-label">
+            Chatting as <span class="current-username my-name">you</span>
+        </div>
         <form onsubmit="app.doSendMessage(); return false;">
-            <div class="placeholder">
-                <label><b class="current-username"></b>. Say something:</label>
-            </div>
-            <input class="input-message" type="text" placeholder="Enter message">
             <div id="image-preview">
-                <img id="uploaded-image" alt="">
+                <img id="uploaded-image" alt="preview">
+                <span class="prev-rm" onclick="app.clearImage()">✕ Remove</span>
             </div>
-            <input id="image-upload" type="file" accept="image/*" onchange="app.handleImageUpload()">
-            <button type="submit">Send</button>
+            <div class="c-row">
+                <div class="compose-box">
+                    <input class="input-message" type="text" placeholder="Send a message…" autocomplete="off">
+                    <label class="attach-btn" for="image-upload" title="Attach image">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    </label>
+                    <input id="image-upload" type="file" accept="image/*" onchange="app.handleImageUpload()">
+                </div>
+                <button class="send-btn" type="submit">
+                    <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
         </form>
-    </div>
+    </footer>
 
-    <script type="text/javascript">
-        var app = {};
-        app.ws = undefined;
-        app.container = undefined;
-        app.username = undefined;
-        app.imageContentType = '';
+</div>
+<script>
+var app = {};
+app.ws = undefined;
+app.container = undefined;
+app.username = undefined;
+app.imageContentType = '';
+app.selectedTarget = '';
 
-        app.print = function (message, isMe) {
-            var el = document.createElement("div");
-            el.innerHTML = message;
-            el.classList.add("message");
+var AV = ['av-a','av-b','av-c','av-d','av-e'];
+var avCache = {};
 
-            if (isMe) {
-                el.classList.add("me");
-            } else {
-                el.classList.add("others");
-            }
+function avClass(name) {
+    if (!avCache[name]) {
+        var n = 0;
+        for (var i = 0; i < name.length; i++) n += name.charCodeAt(i);
+        avCache[name] = AV[n % AV.length];
+    }
+    return avCache[name];
+}
 
-            el.style.width = 'auto';
+function initials(name) {
+    var p = name.trim().split(/\s+/);
+    return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+}
 
-            app.container.appendChild(el);
+function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
-            app.container.scrollTop = app.container.scrollHeight;
+app.print = function(message, isMe) {
+    var w = document.createElement('div');
+    w.className = 'message ' + (isMe ? 'me' : 'others');
+    var b = document.createElement('div');
+    b.className = 'msg-bubble';
+    b.innerHTML = message;
+    w.appendChild(b);
+    app.container.appendChild(w);
+    app.container.scrollTop = app.container.scrollHeight;
+};
+
+app.printSystem = function(text) {
+    var el = document.createElement('div');
+    el.className = 'msg-system';
+    el.textContent = text;
+    app.container.appendChild(el);
+    app.container.scrollTop = app.container.scrollHeight;
+};
+
+app.updateOnlineUserList = function(userList) {
+    var sel = document.querySelector('.user-list');
+    sel.innerHTML = '';
+    var selfOpt = document.createElement('option');
+    selfOpt.text = app.username; selfOpt.disabled = true;
+    sel.add(selfOpt);
+
+    var ui = document.getElementById('user-list-ui');
+    ui.innerHTML = '';
+
+    var selfItem = document.createElement('div');
+    selfItem.className = 'user-item is-me';
+    selfItem.innerHTML = '<div class="user-avatar '+avClass(app.username)+'">'+initials(app.username)+'</div><span class="user-name">'+esc(app.username)+'</span>';
+    ui.appendChild(selfItem);
+
+    for (var i = 0; i < userList.length; i++) {
+        var u = userList[i];
+        if (u === app.username) continue;
+        (function(name){
+            var o = document.createElement('option'); o.text = name; sel.add(o);
+            var item = document.createElement('div');
+            item.className = 'user-item' + (name === app.selectedTarget ? ' selected' : '');
+            item.innerHTML = '<div class="user-avatar '+avClass(name)+'">'+initials(name)+'</div><span class="user-name">'+esc(name)+'</span><div class="user-dot"></div>';
+            item.addEventListener('click', function(){
+                app.selectedTarget = name;
+                sel.value = name;
+                document.querySelectorAll('#user-list-ui .user-item').forEach(function(el){ el.classList.remove('selected'); });
+                item.classList.add('selected');
+                document.getElementById('h-name').textContent = name;
+                document.getElementById('h-avatar').textContent = initials(name);
+                document.getElementById('h-avatar').className = 'h-avatar ' + avClass(name);
+                document.getElementById('h-status').textContent = 'online';
+            });
+            ui.appendChild(item);
+        })(u);
+    }
+};
+
+app.doSendMessage = function() {
+    var messageRaw = document.querySelector('.input-message').value.trim();
+    var targetUser = document.querySelector('.user-list').value;
+    var messageData = { message: messageRaw, targetUser: targetUser };
+
+    var hasImage = document.getElementById('image-preview').style.display === 'flex';
+    if (hasImage) {
+        messageData.image = { data: app.getBase64Image(), contentType: app.imageContentType };
+        app.print('<b>me</b>: <img src="' + document.getElementById('uploaded-image').src + '">', true);
+    }
+    app.ws.send(JSON.stringify(messageData));
+    if (messageRaw) app.print('<b>me</b>: ' + esc(messageRaw), true);
+    document.querySelector('.input-message').value = '';
+    if (hasImage) app.clearImage();
+};
+
+app.handleImageUpload = function() {
+    var fi = document.getElementById('image-upload');
+    var prev = document.getElementById('image-preview');
+    var img = document.getElementById('uploaded-image');
+    if (fi.files.length > 0) {
+        var file = fi.files[0];
+        var r = new FileReader();
+        r.onload = function(e) {
+            img.src = e.target.result;
+            img.style.display = 'block';
+            prev.style.display = 'flex';
+            app.imageContentType = file.type;
         };
+        r.readAsDataURL(file);
+    }
+};
 
-        app.updateOnlineUserList = function (userList) {
-            var userListDropdown = document.querySelector('.user-list');
-            userListDropdown.innerHTML = '';
+app.clearImage = function() {
+    document.getElementById('image-upload').value = '';
+    document.getElementById('uploaded-image').src = '';
+    document.getElementById('uploaded-image').style.display = 'none';
+    document.getElementById('image-preview').style.display = 'none';
+};
 
-            var optionCurrentUser = document.createElement('option');
-            optionCurrentUser.text = app.username;
-            optionCurrentUser.style.fontWeight = 'bold';
-            optionCurrentUser.style.color = '#000000';
-            optionCurrentUser.disabled = true;
-            userListDropdown.add(optionCurrentUser);
+app.getBase64Image = function() {
+    var img = document.getElementById('uploaded-image');
+    var c = document.createElement('canvas');
+    c.width = img.naturalWidth || img.width;
+    c.height = img.naturalHeight || img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return c.toDataURL(app.imageContentType).split(',')[1];
+};
 
-            for (var i = 0; i < userList.length; i++) {
-                var option = document.createElement('option');
-                option.text = userList[i];
+app.init = function() {
+    if (!window.WebSocket) { alert('Your browser does not support WebSocket'); return; }
+    app.username = prompt('Enter your name:') || 'No name';
+    document.querySelectorAll('.current-username').forEach(function(el){ el.textContent = app.username; });
+    document.getElementById('h-name').textContent = app.username;
+    document.getElementById('h-avatar').textContent = initials(app.username);
+    document.getElementById('h-avatar').className = 'h-avatar ' + avClass(app.username);
+    document.getElementById('h-status').textContent = 'connecting…';
+    app.container = document.querySelector('.message-container');
 
-                if (userList[i] === app.username) {
-                    continue;
-                }
+    var webAddress = "{{WEB_ADDRESS}}";
+    var serverPort = "{{SERVER_PORT}}";
+    app.ws = new WebSocket('ws://' + webAddress + ':' + serverPort + '/ws?username=' + encodeURIComponent(app.username));
 
-                userListDropdown.add(option);
-            }
-        };
+    app.ws.onopen = function() {
+        document.getElementById('h-status').textContent = 'connected';
+        app.printSystem('You joined the chat');
+    };
 
-        app.doSendMessage = function () {
-            var messageRaw = document.querySelector('.input-message').value;
-            var targetUser = document.querySelector('.user-list').value;
+    app.ws.onmessage = function(event) {
+        console.log('Received:', event.data);
+        var res = JSON.parse(event.data);
+        if (res.type === 'UserList') { app.updateOnlineUserList(res.message); return; }
+        if (res.type === 'New User') app.printSystem(res.from + ' joined');
+        else if (res.type === 'Leave') app.printSystem(res.from + ' left');
+        else if (res.type === 'Image') app.print('<b>' + esc(res.from) + '</b>: <img src="' + res.message + '">', false);
+        else app.print('<b>' + esc(res.from) + '</b>: ' + esc(res.message), false);
+    };
 
-            if (document.getElementById('image-preview').style.display === 'block') {
-                var imageData = app.getBase64Image();
-                app.ws.send(JSON.stringify({
-                    message: '',
-                    targetUser: targetUser,
-                    image: {
-                        data: imageData,
-                        contentType: app.imageContentType,
-                    },
-                }));
+    app.ws.onclose = function() {
+        document.getElementById('h-status').textContent = 'disconnected';
+        app.printSystem('Connection closed');
+    };
+};
 
-                var message = '<b>me</b>: sent an image';
-                app.print(message, true);
-
-                document.getElementById('image-upload').value = '';
-                document.getElementById('image-preview').style.display = 'none';
-                document.getElementById('uploaded-image').src = '';
-            } else {
-                app.ws.send(JSON.stringify({
-                    message: messageRaw,
-                    targetUser: targetUser,
-                }));
-
-                var message = '<b>me</b>: ' + messageRaw;
-                app.print(message, true);
-
-                document.querySelector('.input-message').value = '';
-            }
-        };
-
-        app.handleImageUpload = function () {
-            var fileInput = document.getElementById('image-upload');
-            var preview = document.getElementById('image-preview');
-            var uploadedImage = document.getElementById('uploaded-image');
-
-            if (fileInput.files.length > 0) {
-                var file = fileInput.files[0];
-                var reader = new FileReader();
-
-                reader.onload = function (e) {
-                    preview.style.display = 'block';
-                    uploadedImage.src = e.target.result;
-                    app.imageContentType = file.type;
-                };
-
-                reader.readAsDataURL(file);
-            } else {
-                preview.style.display = 'none';
-                uploadedImage.src = '';
-            }
-        };
-
-        app.getBase64Image = function () {
-            var img = document.getElementById('uploaded-image');
-            var canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-
-            var ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-
-            var dataURL = canvas.toDataURL(app.imageContentType);
-            return dataURL.split(',')[1];
-        };
-
-        app.init = function () {
-            if (!window.WebSocket) {
-                alert('Your browser does not support WebSocket');
-                return;
-            }
-
-            document.getElementById('uploaded-image').style.display = 'none';
-            app.username = prompt('Enter your name please:') || "No name";
-            document.querySelector('.current-username').innerText = app.username;
-
-            document.querySelector('.user-list').onchange = function () {
-                var targetUser = this.value;
-                console.log("Selected target user:", targetUser);
-            };
-
-            app.container = document.querySelector('.message-container');
-
-            app.ws = new WebSocket("ws://192.168.88.149:8080/ws?username=" + app.username);
-
-            app.ws.onopen = function () {
-                var message = '<b>me</b>: connected';
-                app.print(message, true);
-            };
-
-            app.ws.onmessage = function (event) {
-                console.log("Received message from server:", event.data);
-
-                var res = JSON.parse(event.data);
-
-                if (res.type === 'UserList') {
-                    app.updateOnlineUserList(res.message);
-                    return;
-                }
-
-                var message = '';
-                if (res.type === 'New User') {
-                    message = 'User <b>' + res.from + '</b>: connected';
-                } else if (res.type === 'Leave') {
-                    message = 'User <b>' + res.from + '</b>: disconnected';
-                } else if (res.type === 'Image') {
-                    message = '<b>' + res.from + '</b>: <img src="' + res.message + '" style="max-width: 100%; max-height: 200px;">';
-                } else {
-                    message = '<b>' + res.from + '</b>: ' + res.message;
-                }
-
-                app.print(message, false);
-            };
-        };
-
-        window.onload = app.init;
-    </script>
+window.onload = app.init;
+</script>
 </body>
 </html>
